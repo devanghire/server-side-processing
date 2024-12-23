@@ -1,0 +1,138 @@
+https://cdn.datatables.net/1.11.3/css/jquery.dataTables.min.css
+
+https://cdn.datatables.net/1.11.3/js/jquery.dataTables.min.js
+
+
+ ***************************** View :  = *************************************************************
+
+  <table  class="table table-striped table-bordered datatable">
+    <thead>
+        <tr>
+          <th><button onclick="multidelete()" class="btn btn-xs btn-danger" name="deletebutton"><i class="fa fa-trash"></i></button></th>
+          <th>Application No</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Arresting Agency</th>
+          <th>Date of Arrest </th>
+          <th>Driving License Number</th>
+          <th>Case Number</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+
+    </tbody>
+  </table>
+
+  <script type="text/javascript" language="javascript">
+
+
+$(document).ready(function() {
+
+  $(".datatable").DataTable({
+
+    "processing": true,
+    "serverSide": true,
+    "ordering": true,
+    "searching": true,
+    "ajax": {
+        "url": "<?php echo base_url('admin/user/user/jsonList'); ?>",
+        "type": "POST",
+        "data" :{}
+    },
+    "columns": [
+        { "data": "deleteid" },
+        { "data": "appno" },
+        { "data": "name" },
+        { "data": "email" },
+        { "data": "agency" },
+        { "data": "dateofarrest" },
+        { "data": "drivelicence"},
+        { "data": "caseno"},
+        { "data": "status"},
+        { "data": "action"},
+    ],
+  });
+});
+
+</script>
+ ******************************************************************************************
+
+  ***************************** ctrl  :  = *************************************************************
+
+  public function jsonList()
+  {
+        $json_data = $this->User_model->get_list_table(); // get the invoice list
+        echo json_encode($json_data);
+  }
+
+******************************************************************************************
+
+  ***************************** model  :  = *************************************************************
+
+
+public function get_list_table(){
+
+		$params = $totalRecords = $data = array();
+    $params = $_REQUEST;
+    $where = $sqlTot = $sqlRec = "";
+
+		if( !empty($params['search']['value']) ) {
+      $where .=" AND ";
+      $where .=" ( ";
+      $where .=" expungument.firstname LIKE '%".$params['search']['value']."%' ";
+      $where .=" OR expungument.lastname LIKE '%".$params['search']['value']."%' ";
+			$where .=" OR um.email LIKE '%".$params['search']['value']."%' ";
+			$where .=" OR expungument.arresting_agency LIKE '%".$params['search']['value']."%' ";
+			$where .=" OR expungument.license LIKE '%".$params['search']['value']."%' ";
+			$where .=" OR expungument.case_no LIKE '%".$params['search']['value']."%' ";
+			$where .=" OR expungument.status LIKE '%".$params['search']['value']."%' ";
+      $where .=" )";
+    }
+
+		$sql = "SELECT um.uid,expungument.status,expungument.exfid,expungument.arresting_agency,expungument.date_arrest,expungument.offense_attested,um.username,expungument.case_no,um.email,um.address,expungument.suffix,expungument.firstname,expungument.lastname,expungument.license,expungument.arrest_date,expungument.arrest_month,expungument.arrest_year
+		        FROM expungument
+            LEFT JOIN user_master um ON um.uid = expungument.uid
+            WHERE 1=1 {$where} AND um.email != ''
+            ORDER BY expungument.exfid DESC ";
+
+		$sqlTot .= $sql;
+    $sqlRec .= $sql;
+
+		$sqlRec .=  " LIMIT ".$params['start']." ,".$params['length']." ";
+    $queryTot = $this->db->query($sqlTot);
+    $totalRecords = $queryTot->num_rows();
+    $queryRecords = $this->db->query($sqlRec);
+    $results = $queryRecords->result();
+
+		if(!empty($results)){
+			foreach ($results as $val) {
+
+				$date_arrest = $val->arrest_month."-".$val->arrest_date."-".$val->arrest_year;
+
+				$data[] = array(
+                    'deleteid' => '<input type="checkbox" id="'.$val->exfid.'" class="multdelete" value="'.$val->exfid.'">',
+					'appno'=>'<a href="javascript:frm_submit('.$val->exfid.',`Chat`,'.$val->uid.');">'.$val->exfid.'</a>',
+					'name' 	 	=>  $val->suffix.' '.$val->firstname.' '.$val->lastname,
+                    'email' 	=> $val->email,
+                    'agency'     => $val->arresting_agency,
+                    'dateofarrest'   => $date_arrest,
+                    'drivelicence'   => $val->license,
+					'caseno'	=>$val->case_no,
+					'status'	=>$val->status,
+					'action'	=>'<a href="javascript:frm_submit('.$val->exfid.',`View`);" class="btn btn-success btn-xs"> <i class="fa fa-edit"></i> View Detail</a>',
+
+                );
+			}
+		}
+
+		$json_data = array(
+      "draw"            => intval( $params['draw'] ),
+      "recordsTotal"    => intval( $totalRecords ),
+      "recordsFiltered" => intval($totalRecords),
+      "data"            => $data   // total data array
+    );
+
+  return $json_data;
+}
